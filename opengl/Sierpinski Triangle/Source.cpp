@@ -3,6 +3,8 @@
 #include <SFML/Graphics.hpp>
 #include <SFML/OpenGL.hpp>
 #include<gl\glm\glm.hpp>
+#include<cmath>
+#include<vector>
 
 using namespace std;
 using namespace glm;
@@ -20,72 +22,68 @@ struct Vertex
 	vec3 COlor;
 };
 
+
 GLuint InitShader(const char* vertex_shader_file_name, const char* fragment_shader_file_name);
 
 const GLint WIDTH = 600, HEIGHT = 600;
 GLuint VBO, BasiceprogramId;
-DrawingMode Current_DrawingMode = DrawingMode::FilledTriangle;
+DrawingMode Current_DrawingMode = DrawingMode::Lines;
 
 
-void DrawTriangleFan()
-{
-	const int numSegments = 16;
-	const float radius = 1.0f;
-	const float PI = 3.14159265f;
 
-	// Each vertex has x, y (2 floats) + r, g, b (3 floats)
-	const int floatsPerVertex = 5;
-	GLfloat vertices[(numSegments + 2) * floatsPerVertex];
+void CreateSierpinskiTriangle(int depth) {
+	
+	std::vector<GLfloat> vertices;
 
-	// Center vertex (for the fan)
-	vertices[0] = 0.0f;  // x
-	vertices[1] = 0.0f;  // y
-	vertices[2] = 0.9098f; // r
-	vertices[3] = 0.7372f; // g
-	vertices[4] = 0.7254f; // b
+		auto generateSierpinskiPoints = [&](auto& self, int depth,
+		float x1, float y1, float x2, float y2, float x3, float y3,
+		float r1, float g1, float b1, float r2, float g2, float b2, float r3, float g3, float b3) -> void {
+			if (depth == 0) {
+	
+				vertices.insert(vertices.end(), { x1, y1, 0.0f, r1, g1, b1 });
+				vertices.insert(vertices.end(), { x2, y2, 0.0f, r2, g2, b2 });
+				vertices.insert(vertices.end(), { x3, y3, 0.0f, r3, g3, b3 });
+				return;
+			}
+			float mx1 = (x1 + x2) / 2.0f;
+			float my1 = (y1 + y2) / 2.0f;
 
+			float mx2 = (x2 + x3) / 2.0f;
+			float my2 = (y2 + y3) / 2.0f;
 
-	for (int i = 0; i < numSegments + 1; ++i)
-	{
-		float angle = 2.0f * PI * i / numSegments;
-
-		// Position
-		vertices[(i + 1) * floatsPerVertex] = radius * cos(angle);     // x
-		vertices[(i + 1) * floatsPerVertex + 1] = radius * sin(angle); // y
-
-		// Color (assign based on segments)
-		if (i < numSegments / 3) {
-			vertices[(i + 1) * floatsPerVertex + 2] = 0.9098f; // r
-			vertices[(i + 1) * floatsPerVertex + 3] = 0.7372f; // g
-			vertices[(i + 1) * floatsPerVertex + 4] = 0.7254f; // b
-		}
-		else if (i < 2 * numSegments / 3) {
-			vertices[(i + 1) * floatsPerVertex + 2] = 0.2627f; // r
-			vertices[(i + 1) * floatsPerVertex + 3] = 0.1803f; // g
-			vertices[(i + 1) * floatsPerVertex + 4] = 0.3294f; // b
-		}
-		else {
-			vertices[(i + 1) * floatsPerVertex + 2] = 0.6823f; // r
-			vertices[(i + 1) * floatsPerVertex + 3] = 0.2666f; // g
-			vertices[(i + 1) * floatsPerVertex + 4] = 0.3529f; // b
-		}
-	}
+			float mx3 = (x3 + x1) / 2.0f;
+			float my3 = (y3 + y1) / 2.0f;
 
 
-	// Create and bind buffer object
+			float mr1 = (r1 + r2) / 2.0f, mg1 = (g1 + g2) / 2.0f, mb1 = (b1 + b2) / 2.0f;
+			float mr2 = (r2 + r3) / 2.0f, mg2 = (g2 + g3) / 2.0f, mb2 = (b2 + b3) / 2.0f;
+			float mr3 = (r3 + r1) / 2.0f, mg3 = (g3 + g1) / 2.0f, mb3 = (b3 + b1) / 2.0f;
+
+
+			self(self, depth - 1, x1, y1, mx1, my1, mx3, my3, r1, g1, b1, mr1, mg1, mb1, mr3, mg3, mb3);
+			self(self, depth - 1, mx1, my1, x2, y2, mx2, my2, mr1, mg1, mb1, r2, g2, b2, mr2, mg2, mb2);
+			self(self, depth - 1, mx3, my3, mx2, my2, x3, y3, mr3, mg3, mb3, mr2, mg2, mb2, r3, g3, b3);
+		};
+
+
+	generateSierpinskiPoints(generateSierpinskiPoints, depth,
+		-0.9f, -0.9f, 0.9f, -0.9f, 0.0f, 0.9f,
+		0.2392f, 0.0117f, 0.0011f, 0.69019f, 0.1882f, 0.3215f, 0.8431f, 0.4235f, 0.5098f);
+
+
 	GLuint VBO;
 	glGenBuffers(1, &VBO);
-	glBindBuffer(GL_ARRAY_BUFFER, VBO);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
-	// Set up vertex attribute pointers
-	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, floatsPerVertex * sizeof(GLfloat), (void*)0); // Position
+	glBindBuffer(GL_ARRAY_BUFFER, VBO);
+	glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(GLfloat), vertices.data(), GL_STATIC_DRAW);
+
+
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(GLfloat), 0); 
 	glEnableVertexAttribArray(0);
 
-	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, floatsPerVertex * sizeof(GLfloat), (void*)(2 * sizeof(GLfloat))); // Color
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(GLfloat), (void*)(3 * sizeof(GLfloat))); 
 	glEnableVertexAttribArray(1);
 }
-
 
 
 void CompileShader(const char* vertex_shader_file_name, const char* fragment_shader_file_namering, GLuint& programId)
@@ -115,8 +113,9 @@ int Init()
 	cout << "\tGLSL:" << glGetString(GL_SHADING_LANGUAGE_VERSION) << endl;
 
 	CompileShader("VS.glsl", "FS.glsl", BasiceprogramId);
-	DrawTriangleFan();
-	
+
+	CreateSierpinskiTriangle(5);
+
 	glClearColor(0.9647f, 0.9372f, 0.7411f, 1);
 
 	return 0;
@@ -142,7 +141,8 @@ void Render()
 		break;
 	}
 
-	glDrawArrays(GL_TRIANGLE_FAN, 0, 18);
+	
+	glDrawArrays(GL_TRIANGLES, 0, 3 * std::pow(3, 5));
 }
 
 float theta = 0;
@@ -159,7 +159,7 @@ int main()
 {
 	sf::ContextSettings context;
 	context.depthBits = 24;
-	sf::Window window(sf::VideoMode(WIDTH, HEIGHT), " circle made of triangle fan", sf::Style::Close, context);
+	sf::Window window(sf::VideoMode(WIDTH, HEIGHT), "Sierpinski Triangles", sf::Style::Close, context);
 
 	if (Init()) return 1;
 
@@ -201,3 +201,4 @@ int main()
 	}
 	return 0;
 }
+
