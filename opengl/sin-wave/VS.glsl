@@ -1,20 +1,18 @@
 #version 330
 
-layout (location = 0) in vec4 vertex_position;
-layout (location = 1) in vec4 vertex_color;
+layout (location = 0) in vec4 vertex_position;  
+layout (location = 1) in vec4 vertex_color;     
+uniform float amplitude;  
+uniform float frequency;  
 
-uniform float theta;
+out vec4 frag_color;  // Output fragment color
 
-out vec4 frag_color;
 void main()
 {
-	//gl_Position = vertex_position;
+   
+    float y = amplitude * sin(frequency * vertex_position.x * 3.14159f); 
+   
+    gl_Position = vec4(vertex_position.x, y, 0.0f, 1.0f); 
 
-	float x = vertex_position.x * cos(theta) + vertex_position.y * sin(theta);
-	float y = -vertex_position.x * sin(theta) + vertex_position.y * cos(theta);
-	
-	gl_Position = vec4(x/2,y/2,vertex_position.z,1);
-
-	//frag_color = vertex_position;
-	frag_color = vertex_color;
+    frag_color = vertex_color;
 }
